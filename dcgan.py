@@ -23,7 +23,7 @@ my_seed = 1
 random.seed(my_seed)
 torch.manual_seed(my_seed)
 
-dataroot = "images/pumpkins"
+dataroot = "images"
 num_workers = 2
 batch_size = 128
 image_size = 64
@@ -31,7 +31,7 @@ num_channels = 3
 dim_z = 64 
 
 gen_features = 64
-disc_lr = 2e-3
+disc_lr = 1e-3
 gen_lr = 2e-3
 beta1 = 0.5
 beta2 = 0.999
