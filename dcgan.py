@@ -9,6 +9,7 @@ import torch
 import torch.nn as nn
 import torch.nn.parallel
 import torch.optim as optim
+import torch.nn.functional as F
 #import torch.backends.cudnn as cudnn
 import torch.utils.data
 import torchvision.datasets as dset
@@ -23,21 +24,21 @@ my_seed = 1
 random.seed(my_seed)
 torch.manual_seed(my_seed)
 
-dataroot = "images"
+dataroot = "images/"
 num_workers = 2
 batch_size = 1024 
 image_size = 64 
 num_channels = 3
 dim_z = 64 
 
+disc_features = 64 
 gen_features = 64
-disc_lr = 1e-4
+disc_lr = 2e-4
 gen_lr = 2e-4
 beta1 = 0.5
 beta2 = 0.999
-num_epochs = 1000
+num_epochs = 3000
 ngpu = 2
-
 
 def weights_init(my_model):
     classname = my_model.__class__.__name__
@@ -78,25 +79,37 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
 
         self.ngpu = ngpu
-        self.main = nn.Sequential(\
-                nn.ConvTranspose2d(dim_z, gen_features*8, 4, 1, 0, bias=False),\
+        self.block0 = nn.Sequential(\
+                nn.ConvTranspose2d(dim_z, gen_features*32, 2, 1, 0, bias=False),\
+                nn.BatchNorm2d(gen_features*32),\
+                nn.LeakyReLU(True))
+        self.block1 = nn.Sequential(\
+                nn.ConvTranspose2d(gen_features*32,gen_features*16, 4, 2, 1, bias=False),\
+                nn.BatchNorm2d(gen_features*16),\
+                nn.LeakyReLU(True))
+        self.block2 = nn.Sequential(\
+                nn.ConvTranspose2d(gen_features*16,gen_features*8, 4, 2, 1, bias=False),\
                 nn.BatchNorm2d(gen_features*8),\
-                nn.ReLU(True),\
+                nn.LeakyReLU(True))
+        self.block3 = nn.Sequential(\
                 nn.ConvTranspose2d(gen_features*8, gen_features*4, 4, 2, 1, bias=False),\
                 nn.BatchNorm2d(gen_features*4),\
-                nn.ReLU(True),\
+                nn.LeakyReLU(True))
+        self.block4 = nn.Sequential(\
                 nn.ConvTranspose2d(gen_features*4, gen_features*2, 4, 2, 1, bias=False),\
                 nn.BatchNorm2d(gen_features*2),\
-                nn.ReLU(True),\
-                nn.ConvTranspose2d(gen_features*2, gen_features, 4, 2, 1, bias=False),\
-                nn.BatchNorm2d(gen_features),\
-                nn.ReLU(True),\
-                nn.ConvTranspose2d(gen_features, num_channels, 4, 2, 1, bias=False),\
-                nn.Tanh()
-            )
+                nn.LeakyReLU(True))
+        self.block5 = nn.Sequential(\
+                nn.ConvTranspose2d(gen_features*2, num_channels, 4, 2, 1, bias=False))\
                 
     def forward(self, z):
-        return self.main(z)
+        x = self.block0(z)
+        x = self.block1(x)
+        x = self.block2(x)
+        x = self.block3(x)
+        x = self.block4(x)
+        x = F.tanh(self.block5(x))
+        return x
 
 class Discriminator(nn.Module):
 
@@ -135,6 +148,9 @@ if (device.type == "cuda") and (ngpu > 1):
 
 gen_net.apply(weights_init)
 disc_net.apply(weights_init)
+
+print(gen_net)
+print(disc_net)
 
 criterion = nn.BCELoss()
 
