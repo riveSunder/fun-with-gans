@@ -217,7 +217,13 @@ for epoch in range(num_epochs):
         gen_optimizer.step()
 
         if ii % 100 == 0:
-            print("{} {:.3f} s |Epoch {}/{}:\tdisc_loss: {:.3e}\tgen_loss: {:.3e}\tdisc(x): {:.3e}\tdisc(gen(z)): {:.3e}/{:.3e}".format(iters,time.time()-t0, epoch, num_epochs, disc_loss.item(), gen_loss.item(), disc_x, disc_gen_z1, disc_gen_z2))
+            # discriminator pass with fake images
+            noise = torch.randn(batch_size, dim_z, 1, 1, device=device)
+
+            fake = gen_net(noise)
+            output = disc_net(fake).view(-1)
+            disc_gen_z3 = output.mean().item()
+            print("{} {:.3f} s |Epoch {}/{}:\tdisc_loss: {:.3e}\tgen_loss: {:.3e}\tdisc(x): {:.3e}\tdisc(gen(z)): {:.3e}/{:.3e}/{:.3e}".format(iters,time.time()-t0, epoch, num_epochs, disc_loss.item(), gen_loss.item(), disc_x, disc_gen_z1, disc_gen_z2, disc_gen_z3))
 
         disc_losses.append(disc_loss.item())
         gen_losses.append(gen_loss.item())
