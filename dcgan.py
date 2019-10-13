@@ -25,18 +25,18 @@ torch.manual_seed(my_seed)
 
 dataroot = "images"
 num_workers = 2
-batch_size = 128
-image_size = 64
+batch_size = 1024 
+image_size = 64 
 num_channels = 3
 dim_z = 64 
 
 gen_features = 64
-disc_lr = 1e-3
-gen_lr = 2e-3
+disc_lr = 1e-4
+gen_lr = 2e-4
 beta1 = 0.5
 beta2 = 0.999
 num_epochs = 1000
-ngpu = 0
+ngpu = 2
 
 
 def weights_init(my_model):
@@ -61,6 +61,7 @@ dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size,\
                 shuffle=True, num_workers=num_workers)
 
 device = torch.device("cuda:0" if ngpu > 0 and torch.cuda.is_available() else "cpu")
+print(device)
 
 # look at batch of real images
 real_batch = next(iter(dataloader))
@@ -125,8 +126,12 @@ class Discriminator(nn.Module):
 gen_net = Generator(ngpu, dim_z, gen_features, \
         num_channels).to(device)        
 
-disc_net = Discriminator(ngpu, gen_features, num_channels)
+disc_net = Discriminator(ngpu, gen_features, num_channels).to(device)
+
 # add data parallel here for >= 2 gpus
+if (device.type == "cuda") and (ngpu > 1):
+    disc_net = nn.DataParallel(disc_net, list(range(ngpu)))
+    gen_net = nn.DataParallel(gen_net, list(range(ngpu)))
 
 gen_net.apply(weights_init)
 disc_net.apply(weights_init)
@@ -211,5 +216,7 @@ for epoch in range(num_epochs):
             np.save("./gen_images.npy", img_list)
             np.save("./gen_losses.npy", gen_losses)
             np.save("./disc_losses.npy", disc_losses)
+            torch.save(gen_net.state_dict(), "./weights/generator.h5")
+            torch.save(disc_net.state_dict(), "./weights/discriminator.h5")
         iters += 1
 
