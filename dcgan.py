@@ -108,7 +108,7 @@ if __name__ == "__main__":
     random.seed(my_seed)
     torch.manual_seed(my_seed)
 
-    root_path = "images/pumpkins/jacks"
+    root_path = "images/mushrooms"
     num_workers = 2
     batch_size = 512 
     image_size = 64 
@@ -121,8 +121,8 @@ if __name__ == "__main__":
     gen_lr = 2e-3
     beta1 = 0.5
     beta2 = 0.999
-    num_epochs = 15000
-    save_every = 300
+    num_epochs = 1600
+    save_every = 100
     ngpu = 2
 
     dataloader = get_dataloader(root_path, batch_size)
@@ -228,9 +228,9 @@ if __name__ == "__main__":
                     fake = gen_net(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True).numpy())
 
-                np.save("./gen_images.npy", img_list)
-                np.save("./gen_losses.npy", gen_losses)
-                np.save("./disc_losses.npy", disc_losses)
-                torch.save(gen_net.state_dict(), "./weights/generator.h5")
-                torch.save(disc_net.state_dict(), "./weights/discriminator.h5")
+                np.save("./msrm_gen_images.npy", img_list)
+                np.save("./msrm_gen_losses.npy", gen_losses)
+                np.save("./msrm_disc_losses.npy", disc_losses)
+                torch.save(gen_net.state_dict(), "./weights/msrm_generator.h5")
+                torch.save(disc_net.state_dict(), "./weights/msrm_discriminator.h5")
             iters += 1
