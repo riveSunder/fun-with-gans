@@ -1,3 +1,6 @@
+import argparse
+import os
+
 import random
 import time
 import numpy as np
@@ -22,7 +25,7 @@ def weights_init(my_model):
         nn.init.normal_(my_model.weight.data, 1.0, 0.02)
         nn.init.constant_(my_model.bias.data, 0.0)
 
-def get_dataloader(root_path, batch_size=512):
+def get_dataloader(root_path, image_size=64, batch_size=512, num_workers=2):
     dataset = dset.ImageFolder(root=root_path,\
             transform=transforms.Compose([\
             transforms.RandomHorizontalFlip(),\
@@ -101,33 +104,34 @@ class Discriminator(nn.Module):
     def forward(self, imgs):
         return self.main(imgs)
 
-if __name__ == "__main__":
+def run_train(args):
+
+    root_path = args.root_path
+    image_size = args.image_size
+    batch_size = args.batch_size
+    dim_z = image_size // 4
+    num_workers = 16
+    num_channels = 3
+
+    disc_features = 64 
+    gen_features = 64
+    disc_lr = 1e-4
+    gen_lr = 2e-4
+    beta1 = 0.5
+    beta2 = 0.999
+    num_epochs = 12000
+    save_every = 100
+    ngpu = 1
 
     # ensure repeatability
     my_seed = 13
     random.seed(my_seed)
     torch.manual_seed(my_seed)
 
-    root_path = "images/mushrooms"
-    num_workers = 2
-    batch_size = 512 
-    image_size = 64 
-    num_channels = 3
-    dim_z = 64 
-
-    disc_features = 64 
-    gen_features = 64
-    disc_lr = 1e-3
-    gen_lr = 2e-3
-    beta1 = 0.5
-    beta2 = 0.999
-    num_epochs = 1600
-    save_every = 100
-    ngpu = 2
-
-    dataloader = get_dataloader(root_path, batch_size)
+    dataloader = get_dataloader(root_path, image_size, batch_size, num_workers)
 
     device = torch.device("cuda:0" if ngpu > 0 and torch.cuda.is_available() else "cpu")
+    #device = torch.device("cpu")
 
     gen_net = Generator(ngpu, dim_z, gen_features, \
             num_channels).to(device)        
@@ -171,8 +175,11 @@ if __name__ == "__main__":
             # discriminator pass with real images 
             real_cpu = data[0].to(device)
             batch_size= real_cpu.size(0)
-            label = torch.full((batch_size,), real_label, device=device)
             output = disc_net(real_cpu).view(-1)
+            label = torch.full((output.shape[0],), real_label, device=device)
+
+            output = output.float()
+            label = label.float()
             disc_real_loss = criterion(output,label)
             disc_real_loss.backward()
 
@@ -185,6 +192,8 @@ if __name__ == "__main__":
             label.fill_(fake_label)
 
             output = disc_net(fake.detach()).view(-1)
+            label = torch.full((output.shape[0],), fake_label, device=device)
+            label = label.float()
 
             disc_fake_loss = criterion(output, label)
 
@@ -200,6 +209,8 @@ if __name__ == "__main__":
             gen_net.zero_grad()
             label.fill_(real_label)
             output = disc_net(fake).view(-1)
+            label = torch.full((output.shape[0],), real_label, device=device)
+            label = label.float()
 
             gen_loss = criterion(output, label)
 
@@ -228,9 +239,26 @@ if __name__ == "__main__":
                     fake = gen_net(fixed_noise).detach().cpu()
                 img_list.append(vutils.make_grid(fake, padding=2, normalize=True).numpy())
 
-                np.save("./msrm_gen_images.npy", img_list)
-                np.save("./msrm_gen_losses.npy", gen_losses)
-                np.save("./msrm_disc_losses.npy", disc_losses)
-                torch.save(gen_net.state_dict(), "./weights/msrm_generator.h5")
-                torch.save(disc_net.state_dict(), "./weights/msrm_discriminator.h5")
+                np.save("./vangogh_gen_images.npy", img_list)
+                np.save("./vangogh_gen_losses.npy", gen_losses)
+                np.save("./vangogh_disc_losses.npy", disc_losses)
+                torch.save(gen_net.state_dict(), "./weights/vangogh_generator.h5")
+                torch.save(disc_net.state_dict(), "./weights/vangogh_discriminator.h5")
             iters += 1
+if __name__ == "__main__":
+
+    parser = argparse.ArgumentParser()
+
+    default_path = os.path.abspath(__file__)
+    default_path = os.path.join(default_path, "images", "vangogh")
+
+    parser.add_argument("-r", "--root_path", type=str, default=default_path,\
+            help="root path for training images")
+    parser.add_argument("-i", "--image_size", default=256, type=int, \
+            help="edge dimension for images")
+    parser.add_argument("-b", "--batch_size", default=64, type=int, \
+            help="batch size to use during training")
+    
+    args = parser.parse_args()
+
+    run_train(args)
